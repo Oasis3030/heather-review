@@ -1,26 +1,21 @@
-# Heather Attorney Review Portal
-
-Upload everything in this folder to a GitHub repo and enable GitHub Pages.
-
-## Google Sheet setup
-1. Create a Google Sheet named Attorney Reviews.
-2. Extensions → Apps Script.
-3. Paste the contents of google-apps-script.js.
-4. Deploy → New Deployment → Web app.
-5. Execute as: Me. Access: Anyone with the link.
-6. Copy the Web App URL.
-7. Open the portal → Setup → paste URL → Save.
-
-## Notes
-- Reviews save locally even if the Google endpoint is missing or fails.
-- The queue is sorted oldest to newest by submitted/intake order, so Heather can review longest-sitting first.
-- Each matter includes extracted text plus links to the original files in /assets.
-
-
-## Current Apps Script Endpoint
-
-This copy has already been configured with:
-
-`https://script.google.com/macros/s/AKfycbyuN-_mt09m-3rMNnlQU-rkCtoPod-HrWkfURN169pcA75UvFYnvalFn7nRnboAkUPV/exec`
-
-You should not need to paste the endpoint manually. If you redeploy Apps Script later, update the Setup tab in the portal or replace DEFAULT_ENDPOINT in index.html.
+Heather Attorney Review Portal - Live Queue Version
+This version has memory through Google Sheets.
+How memory works
+Reviewed items are marked `Reviewed` in the Google Sheet `Queue` tab. Heather will not see those again after refreshing or reopening the link.
+It also uses browser localStorage as a backup, so if the submit succeeded visually but the page refreshes weirdly, the reviewed card should still stay gone on that device.
+Files
+index.html = Heather-facing review queue
+admin.html = intake-team upload portal
+google-apps-script.js = Google Sheet / Drive backend
+Google setup
+Create a Google Sheet with two tabs: Queue and Reviews.
+Open Extensions > Apps Script, paste google-apps-script.js, save, and deploy as a Web App.
+Deployment:
+Execute as: Me
+Who has access: Anyone with link
+Create a Google Drive folder for uploaded docs and paste its folder ID into:
+const DRIVE_FOLDER_ID = "PASTE_GOOGLE_DRIVE_FOLDER_ID_HERE";
+Intake team
+Open admin.html to add new PNCs and drag/drop intake forms plus related docs.
+Heather
+Open index.html to review. Submitted cases disappear. Empty queue shows: “Check back later if the intake team uploads any more.”

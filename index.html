@@ -19,7 +19,7 @@ label{display:block;font-size:13px;font-weight:900;margin:12px 0 6px;color:#5d24
 <body><div class="wrap"><header><h1>Heather Review Queue</h1><div class="sub">Oldest first • mobile-friendly • pink because attorney review deserves a little mercy.</div><div id="progressPill" class="progress-pill">Loading reviews…</div><div class="toolbar"><button class="secondary" onclick="showList()">← Queue</button><button class="secondary" onclick="loadCases()">Refresh</button></div></header><div id="list" class="grid"></div><div id="detail" class="detail"></div></div>
 <div id="celebration" class="celebration hidden"><div id="confettiLayer" class="confetti-layer"></div><div class="celebration-card"><div id="celebrationIcon" class="celebration-icon">🎉</div><h2 id="celebrationTitle">Nice work, Heather!</h2><p id="celebrationMsg">One review down. Ari will take it from here. 💕</p><button onclick="closeCelebration()">Back to Queue</button></div></div>
 <script>
-const SCRIPT_URL="https://script.google.com/macros/s/AKfycbyuN-_mt09m-3rMNnlQU-rkCtoPod-HrWkfURN169pcA75UvFYnvalFn7nRnboAkUPV/exec";
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbyw2tzNZ51cMPv9p5XWjJd99ccBk2YE6V-7d2inf5uxMWJFgbAIDiWT4XHJthQY19q7/exec";
 let CASES=[], currentId=null;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));

@@ -22,6 +22,18 @@ label{display:block;font-size:13px;font-weight:900;margin:12px 0 6px;color:#5d24
 .progress-pill{display:inline-flex;align-items:center;gap:6px;margin-top:9px;padding:7px 10px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--accent-dark);font-size:12px;font-weight:900}.footer-actions{position:sticky;bottom:0;background:linear-gradient(180deg,rgba(255,245,248,0),rgba(255,245,248,.98) 28%);padding:18px 0 4px;margin-bottom:-6px}.mini{font-size:12px;color:var(--muted)}
 .celebration{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:22px;background:rgba(43,23,32,.38);backdrop-filter:blur(7px)}.celebration.hidden{display:none}.celebration-card{width:min(520px,92vw);background:linear-gradient(180deg,#fffafe,#fff0f6);border:1px solid var(--line);border-radius:30px;padding:26px 20px;text-align:center;box-shadow:0 28px 80px rgba(184,50,111,.28);position:relative;overflow:hidden}.celebration-card:before{content:"";position:absolute;inset:0 0 auto 0;height:9px;background:linear-gradient(90deg,#ff9cc4,#b8326f,#ffd6e6,#ffb7d1)}.celebration-icon{font-size:48px}.confetti-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none}.confetti{position:absolute;top:-20px;width:9px;height:14px;border-radius:3px;animation:confettiFall linear forwards}@keyframes confettiFall{to{transform:translateY(110vh) rotate(720deg);opacity:1}}
 .drop{border:2px dashed #e6aac2;border-radius:22px;padding:22px;text-align:center;background:#fff7fb;color:#6e1644}.drop.drag{background:#ffe8f2;border-color:var(--accent)}.file-list{font-size:13px;color:var(--muted);margin-top:10px}
+
+.money-wrap{position:relative}
+.money-wrap .money-prefix{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-weight:900;color:var(--accent-dark);pointer-events:none}
+.money-wrap input{padding-left:30px}
+.conditional-card{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(180deg,#fff,#fff3f8)}
+.decision-preview{margin-top:12px;padding:12px;border:1px dashed var(--line);border-radius:18px;background:#fff7fb;color:#6e1644;font-size:13px}
+.inline-check{display:flex;align-items:center;gap:8px;margin-top:12px;padding:11px;border:1px solid var(--line);border-radius:18px;background:#fff}
+.inline-check input{width:auto;margin:0}
+.small-help{font-size:12px;color:var(--muted);margin-top:4px}
+.compact-details summary{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.compact-details summary:after{content:"Tap to expand";font-size:12px;color:var(--muted);font-weight:700}
+
 @media(max-width:560px){.wrap{padding:12px 10px 90px}header{margin:0 -10px 12px;padding:14px 10px 11px}h1{font-size:22px}.case-card,section{border-radius:22px}.radio-row{grid-template-columns:1fr}.kv{grid-template-columns:96px 1fr}.textblock{max-height:360px}.footer-actions button{width:100%;justify-content:center}}
 </style></head>
 <body><div class="wrap"><header><h1>Heather Review Queue</h1><div class="sub">Oldest first • mobile-friendly • pink because attorney review deserves a little mercy.</div><div id="progressPill" class="progress-pill">Loading reviews…</div><div class="toolbar"><button class="secondary" onclick="showList()">← Queue</button><button class="secondary" onclick="loadCases()">Refresh</button></div></header><div id="list" class="grid"></div><div id="detail" class="detail"></div></div>
@@ -31,18 +43,124 @@ const SCRIPT_URL="https://script.google.com/macros/s/AKfycbyw2tzNZ51cMPv9p5XWjJd
 let CASES=[], currentId=null;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+function money(v){
+  if(v===null||v===undefined) return "";
+  let s=String(v).trim();
+  if(!s) return "";
+  let n=Number(s.replace(/[^0-9.-]/g,""));
+  if(!Number.isFinite(n)) return s.startsWith("$")?s:"$"+s;
+  return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:n%1?2:0}).format(n);
+}
+function moneyDigits(v){return String(v||"").replace(/[^0-9.]/g,"");}
+function actionForPayload(form){
+  const q=form.get("qualityLead");
+  if(q==="No") return form.get("actionStep") || "";
+  return form.get("consultType") || "";
+}
 const reviewedKey=id=>"heatherReviewed_"+id;
 const locallyReviewed=id=>localStorage.getItem(reviewedKey(id))==="1";
 async function api(action,payload={}){const res=await fetch(SCRIPT_URL,{method:"POST",mode:"cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action,...payload})});return await res.json();}
 async function loadCases(){$("progressPill").textContent="Refreshing…";try{const data=await api("listCases");CASES=(data.cases||[]).filter(c=>String(c.status||"Pending").toLowerCase()!=="reviewed").filter(c=>!locallyReviewed(c.id)).sort((a,b)=>new Date(a.submitted||a.completed||0)-new Date(b.submitted||b.completed||0));renderList();}catch(e){$("list").innerHTML=`<div class="notice"><b>Could not load from Google Sheet.</b><br>Check Apps Script deployment/permissions.</div>`;$("progressPill").textContent="Load error";}}
 function showList(){currentId=null;$("detail").classList.remove("active");$("list").style.display="grid";renderList();}
-function renderList(){let total=CASES.length;$("progressPill").textContent=total?`${total} pending review${total===1?"":"s"}`:"Queue cleared";if(!total){$("list").innerHTML=`<section class="empty"><div style="font-size:44px">🌷</div><h2>All clear, Heather!</h2><p>There are no pending attorney reviews right now.</p><p class="mini">Check back later if the intake team uploads any more. Ari will update Lawmatics for you. 💕</p></section>`;return;}$("list").innerHTML=CASES.map(c=>`<article class="case-card" onclick="openCase('${esc(c.id)}')"><h2>${esc(c.name)}</h2><div class="meta"><div><b>Submitted:</b> ${esc(c.submitted||c.completed||"")}</div><div><b>Practice:</b> ${esc(c.practice||"")}</div>${c.value?`<div><b>Value:</b> ${esc(c.value)}</div>`:""}</div><div class="chips">${c.value?`<span class="chip value">${esc(c.value)}</span>`:""}${(c.docs||[]).length?`<span class="chip docs">Docs: ${(c.docs||[]).length}</span>`:""}${(c.docs||[]).some(d=>/red flag/i.test(d.name||""))?`<span class="chip red">Red Flag Check</span>`:""}<span class="chip">Tap to review</span></div></article>`).join("");}
-function openCase(id){let c=CASES.find(x=>x.id===id);if(!c)return;currentId=id;$("list").style.display="none";$("detail").classList.add("active");let docs=(c.docs||[]).map(d=>`<details><summary>${esc(d.name)}</summary><p><a class="btn secondary" href="${esc(d.url)}" target="_blank">View Original Doc</a></p>${d.text?`<div class="textblock">${esc(d.text)}</div>`:`<div class="notice">No extracted text available. Use “View Original Doc.”</div>`}</details>`).join("");$("detail").innerHTML=`<button class="secondary" onclick="showList()">← Back to Queue</button><section><h2>${esc(c.name)}</h2><div class="kv"><b>Practice</b><span>${esc(c.practice||"")}</span><b>Value</b><span>${esc(c.value||"")}</span><b>Adverse</b><span>${esc(c.adverse||"")}</span><b>Email</b><span>${esc(c.email||"")}</span><b>Phone</b><span>${esc(c.phone||"")}</span></div></section><section><h3>Attorney-Facing Summary</h3><div class="textblock">${esc(c.summary||"")}</div></section><section><h3>Full Intake Form Contents</h3><div class="textblock">${esc(c.fullText||"")}</div>${c.formUrl?`<p><a class="btn secondary" href="${esc(c.formUrl)}" target="_blank">View Original Intake Form</a></p>`:""}</section><section><h3>Supporting Docs ${(c.docs||[]).length?`(${(c.docs||[]).length})`:""}</h3>${docs||`<div class="notice">No supporting docs uploaded.</div>`}</section><section><h3>Heather's Review</h3><form id="reviewForm" onsubmit="submitReview(event)"><label>Quality Lead *</label><div class="radio-row"><label><input required type="radio" name="qualityLead" value="Yes"> Yes</label><label><input required type="radio" name="qualityLead" value="Maybe"> Maybe</label><label><input required type="radio" name="qualityLead" value="No"> No</label></div><label>Consult Type</label><select name="consultType"><option value="">Select one…</option><option>Complimentary</option><option>Paid</option><option>Decline</option><option>Refer Out</option><option>Needs More Info</option></select><label>Minimum Retainer / Fee</label><input name="minRetainer" placeholder="$10,000 / $500 paid consult / etc."><label>Documents Needed</label><textarea name="docsNeeded"></textarea><label>Attorney Notes</label><textarea name="attorneyNotes"></textarea><label class="toggle"><input type="checkbox" id="refToggle" onchange="toggleReferral()"> Referral in mind?</label><div id="refBox" class="referral-card hide"><label>Referral Notes</label><textarea id="referralNotes" name="referralNotes"></textarea></div><div class="footer-actions"><button type="submit">💕 Submit Review</button><div id="submitStatus" class="status"></div></div></form></section>`;window.scrollTo({top:0,behavior:"smooth"});}
-function toggleReferral(){let box=$("refBox"),t=$("refToggle"),n=$("referralNotes");box.classList.toggle("hide",!t.checked);if(!t.checked&&n)n.value="";}
-async function submitReview(e){e.preventDefault();let c=CASES.find(x=>x.id===currentId),f=new FormData(e.target),payload={caseId:c.id,clientName:c.name,qualityLead:f.get("qualityLead"),consultType:f.get("consultType"),minRetainer:f.get("minRetainer"),docsNeeded:f.get("docsNeeded"),attorneyNotes:f.get("attorneyNotes"),referralInMind:$("refToggle").checked?"Yes":"No",referralNotes:$("refToggle").checked?f.get("referralNotes"):""};$("submitStatus").textContent="Submitting…";try{await api("submitReview",payload);localStorage.setItem(reviewedKey(c.id),"1");CASES=CASES.filter(x=>x.id!==c.id);showCelebration(CASES.length===0);}catch(err){$("submitStatus").textContent="Submission failed. Screenshot this review and send it to Ari.";}}
+function renderList(){let total=CASES.length;$("progressPill").textContent=total?`${total} pending review${total===1?"":"s"}`:"Queue cleared";if(!total){$("list").innerHTML=`<section class="empty"><div style="font-size:44px">🌷</div><h2>All clear, Heather!</h2><p>There are no pending attorney reviews right now.</p><p class="mini">Check back later if the intake team uploads any more. Ari will update Lawmatics for you. 💕</p></section>`;return;}$("list").innerHTML=CASES.map(c=>`<article class="case-card" onclick="openCase('${esc(c.id)}')"><h2>${esc(c.name)}</h2><div class="meta"><div><b>Submitted:</b> ${esc(c.submitted||c.completed||"")}</div><div><b>Practice:</b> ${esc(c.practice||"")}</div>${c.value?`<div><b>Value:</b> ${esc(money(c.value))}</div>`:""}</div><div class="chips">${c.value?`<span class="chip value">💲 ${esc(money(c.value))}</span>`:""}${(c.docs||[]).length?`<span class="chip docs">Docs: ${(c.docs||[]).length}</span>`:""}${(c.docs||[]).some(d=>/red flag/i.test(d.name||""))?`<span class="chip red">Red Flag Check</span>`:""}<span class="chip">Tap to review</span></div></article>`).join("");}
+function openCase(id){let c=CASES.find(x=>x.id===id);if(!c)return;currentId=id;$("list").style.display="none";$("detail").classList.add("active");let docs=(c.docs||[]).map(d=>`<details><summary>${esc(d.name)}</summary><p><a class="btn secondary" href="${esc(d.url)}" target="_blank">View Original Doc</a></p>${d.text?`<div class="textblock">${esc(d.text)}</div>`:`<div class="notice">No extracted text available. Use “View Original Doc.”</div>`}</details>`).join("");$("detail").innerHTML=`<button class="secondary" onclick="showList()">← Back to Queue</button><section><h2>${esc(c.name)}</h2><div class="kv"><b>Practice</b><span>${esc(c.practice||"")}</span><b>Value</b><span>${esc(money(c.value)||"")}</span><b>Adverse</b><span>${esc(c.adverse||"")}</span><b>Email</b><span>${esc(c.email||"")}</span><b>Phone</b><span>${esc(c.phone||"")}</span></div></section><section><h3>Attorney-Facing Summary</h3><div class="textblock">${esc(c.summary||"")}</div></section><section><details class="compact-details"><summary>📄 Full Intake Form Contents</summary><div class="textblock">${esc(c.fullText||"")}</div></details>${c.formUrl?`<p><a class="btn secondary" href="${esc(c.formUrl)}" target="_blank">View Original Intake Form</a></p>`:""}</section><section><h3>Supporting Docs ${(c.docs||[]).length?`(${(c.docs||[]).length})`:""}</h3>${docs||`<div class="notice">No supporting docs uploaded.</div>`}</section><section><h3>Heather's Review</h3><form id="reviewForm" onsubmit="submitReview(event)">
+<label>Quality Lead *</label>
+<div class="radio-row">
+<label><input required type="radio" name="qualityLead" value="Yes" onchange="updateReviewLogic()"> Yes</label>
+<label><input required type="radio" name="qualityLead" value="Maybe" onchange="updateReviewLogic()"> Maybe</label>
+<label><input required type="radio" name="qualityLead" value="No" onchange="updateReviewLogic()"> No</label>
+</div>
+
+<div id="consultBox" class="conditional-card hide">
+<label>Consult Type</label>
+<select name="consultType" onchange="updateDecisionPreview()">
+<option value="">Select one…</option>
+<option>Complimentary</option>
+<option>Paid</option>
+</select>
+<label>Minimum Retainer / Fee</label>
+<div class="money-wrap"><span class="money-prefix">$</span><input name="minRetainer" type="text" inputmode="decimal" autocomplete="off" placeholder="7500" oninput="updateDecisionPreview()"></div>
+<div class="small-help">Number pad should open on phones. No tiny top-row number hunting.</div>
+</div>
+
+<div id="actionBox" class="conditional-card hide">
+<label>Action Step</label>
+<select name="actionStep" onchange="updateReviewLogic()">
+<option value="">Select one…</option>
+<option>Decline</option>
+<option>Refer Out</option>
+<option>Needs More Info</option>
+</select>
+</div>
+
+<label class="inline-check"><input type="checkbox" id="docsNeededToggle" onchange="toggleDocsNeeded()"> Documents Needed?</label>
+<div id="docsNeededBox" class="conditional-card hide">
+<label>Documents Requested</label>
+<textarea id="docsNeededText" name="docsNeeded" placeholder="What should intake request?"></textarea>
+</div>
+
+<div id="referOutBox" class="hide">
+<label class="toggle"><input type="checkbox" id="refToggle" onchange="toggleReferral()"> Referral in mind?</label>
+<div id="refBox" class="referral-card hide">
+<label>Referral Notes</label>
+<textarea id="referralNotes" name="referralNotes"></textarea>
+</div>
+</div>
+
+<label>Attorney Notes</label>
+<textarea name="attorneyNotes"></textarea>
+
+<div id="decisionPreview" class="decision-preview">Select a quality lead decision to preview the review path.</div>
+
+<div class="footer-actions"><button type="submit">💕 Submit Review</button><div id="submitStatus" class="status"></div></div></form></section>`;window.scrollTo({top:0,behavior:"smooth"});}
+function toggleReferral(){let box=$("refBox"),t=$("refToggle"),n=$("referralNotes");box.classList.toggle("hide",!t.checked);if(!t.checked&&n)n.value="";updateDecisionPreview();}
+function toggleDocsNeeded(){let box=$("docsNeededBox"),t=$("docsNeededToggle"),n=$("docsNeededText");box.classList.toggle("hide",!t.checked);if(!t.checked&&n)n.value="";updateDecisionPreview();}
+function updateReviewLogic(){
+  const form=$("reviewForm"); if(!form) return;
+  const q=(new FormData(form)).get("qualityLead");
+  const consultBox=$("consultBox"), actionBox=$("actionBox"), referOutBox=$("referOutBox");
+  const consult=form.elements["consultType"], action=form.elements["actionStep"], min=form.elements["minRetainer"];
+  if(q==="No"){
+    consultBox.classList.add("hide");
+    actionBox.classList.remove("hide");
+    if(consult) consult.value="";
+    if(min) min.value="";
+  }else if(q==="Yes" || q==="Maybe"){
+    consultBox.classList.remove("hide");
+    actionBox.classList.add("hide");
+    if(action) action.value="";
+    hideReferral();
+  }else{
+    consultBox.classList.add("hide");
+    actionBox.classList.add("hide");
+    hideReferral();
+  }
+  if(action && action.value==="Refer Out" && q==="No"){
+    referOutBox.classList.remove("hide");
+  }else{
+    hideReferral();
+  }
+  updateDecisionPreview();
+}
+function hideReferral(){
+  const rb=$("referOutBox"), rt=$("refToggle"), rn=$("referralNotes"), rbox=$("refBox");
+  if(rb) rb.classList.add("hide");
+  if(rt) rt.checked=false;
+  if(rn) rn.value="";
+  if(rbox) rbox.classList.add("hide");
+}
+function updateDecisionPreview(){
+  const form=$("reviewForm"), preview=$("decisionPreview"); if(!form||!preview)return;
+  const f=new FormData(form), q=f.get("qualityLead")||"—";
+  let path=q==="No" ? (f.get("actionStep")||"Action Step not selected") : (f.get("consultType")||"Consult Type not selected");
+  let ret=money(f.get("minRetainer")) || "";
+  let docs=$("docsNeededToggle")?.checked ? "Docs needed" : "No doc request";
+  let ref=$("refToggle")?.checked ? "Referral included" : "";
+  preview.innerHTML=`<b>Decision Preview:</b><br>Quality Lead: ${esc(q)}<br>Path: ${esc(path)}${ret?`<br>Minimum Fee: ${esc(ret)}`:""}<br>${esc(docs)}${ref?`<br>${esc(ref)}`:""}`;
+}
+async function submitReview(e){e.preventDefault();let c=CASES.find(x=>x.id===currentId),f=new FormData(e.target),payload={caseId:c.id,clientName:c.name,qualityLead:f.get("qualityLead"),consultType:actionForPayload(f),minRetainer:money(f.get("minRetainer"))||"",docsNeeded:$("docsNeededToggle")?.checked?f.get("docsNeeded"):"",attorneyNotes:f.get("attorneyNotes"),referralInMind:$("refToggle")?.checked?"Yes":"No",referralNotes:$("refToggle")?.checked?f.get("referralNotes"):""};$("submitStatus").textContent="Submitting…";try{await api("submitReview",payload);localStorage.setItem(reviewedKey(c.id),"1");CASES=CASES.filter(x=>x.id!==c.id);showCelebration(CASES.length===0);}catch(err){$("submitStatus").textContent="Submission failed. Screenshot this review and send it to Ari.";}}
 function showCelebration(final=false){$("celebrationIcon").textContent=final?"✨🎊✨":"🎉";$("celebrationTitle").textContent=final?"Yay! All done!":"Nice work, Heather!";$("celebrationMsg").innerHTML=final?"Heather, you cleared the review queue!<br><br><b>Ari will update in Lawmatics for you.</b><br>Have a great day Heather :) 💕":"One review down. Ari will take it from here. 💕";$("celebration").classList.remove("hidden");fireConfetti(final?100:42);}
 function closeCelebration(){$("celebration").classList.add("hidden");$("confettiLayer").innerHTML="";showList();}
 function fireConfetti(count=42){let layer=$("confettiLayer");layer.innerHTML="";let colors=["#b8326f","#ff9cc4","#ffd6e6","#fff2bf","#8e44ad","#f7bfd4"];for(let i=0;i<count;i++){let p=document.createElement("span");p.className="confetti";p.style.left=Math.random()*100+"vw";p.style.background=colors[Math.floor(Math.random()*colors.length)];p.style.animationDuration=(1.8+Math.random()*2.2)+"s";p.style.animationDelay=(Math.random()*.55)+"s";layer.appendChild(p);}}
 loadCases();
 </script></body></html>
-
